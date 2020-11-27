@@ -1,0 +1,18 @@
+# Common
+*~
+
+# Vim
+*.sw[po]
+
+# Emacs
+\#*\#
+.\#*
+
+# Visual Studio Code
+.vscode/
+
+# IntelliJ IDEA
+.idea/
+*.ipr
+*.iml
+*.iws

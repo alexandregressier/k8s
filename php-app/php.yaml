@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: php
+  labels:
+    tier: back-end
+spec:
+  selector:
+    app: php
+    tier: back-end
+  ports:
+    - protocol: TCP
+      port: 9000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: php
+  labels:
+    app: php
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: php
+      tier: back-end
+  template:
+    metadata:
+      name: php
+      labels:
+        app: php
+        tier: back-end
+    spec:
+      initContainers:
+        - name: install
+          image: busybox
+          command: [ wget, -O, /app/code/index.php, https://pastebin.com/raw/8Epj5m4h ]
+          volumeMounts:
+            - name: code
+              mountPath: /app/code
+      containers:
+        - name: php
+          image: php:7-fpm
+          ports:
+            - containerPort: 9000
+          volumeMounts:
+            - name: code
+              mountPath: /app/code/
+      volumes:
+        - name: code
+          persistentVolumeClaim:
+            claimName: code

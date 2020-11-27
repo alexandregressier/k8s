@@ -1,0 +1,16 @@
+- hosts: localhost
+  gather_facts: false
+
+  tasks:
+    - name: Get the current date
+      command: date
+      register: current_date
+      changed_when: false
+
+    - name: Print the current date
+      debug:
+        msg: "{{ current_date.stdout }}" # Could use `var` as well
+
+    - name: Debug the `current_date` variable
+      debug:
+        var: current_date

@@ -1,0 +1,29 @@
+# Local storage - mongodb-pvc
+# What do we want? Dev side (NAMESPACED RESOURCE)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongodb-pvc
+spec:
+#  storageClassName: default # Does not work on local
+  resources:
+    requests:
+      storage: 20Gi
+  accessModes:
+    - ReadWriteOnce
+
+---
+# How do we want it implemented? What do we offer? Ops side (CLUSTER RESOURCE)
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: local-storage
+spec:
+#  storageClassName: default
+  capacity:
+    storage: 100Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /var/mongodb/db # Arbitrary
+#    type: DirectoryOrCreate # Default
