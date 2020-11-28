@@ -1,6 +1,6 @@
 - hosts: localhost
   gather_facts: false
-#  vars: # DO NOT USE THIS
+#  vars: # DO NOT USE THIS: will propagate to hosts - Use inventory var instead
 #    ansible_python_interpreter: "{{ ansible_playbook_python }}"
   vars_files:
     vars/main.yaml
