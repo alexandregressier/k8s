@@ -1,0 +1,103 @@
+- hosts: localhost
+  gather_facts: false
+  vars:
+    ansible_python_interpreter: "{{ ansible_playbook_python }}"
+    image_name: gressier/hello-go
+    app_state: present
+    replicas: 1
+
+  pre_tasks:
+    - name: Check Minikube's status
+      command: minikube status
+      register: minikube_status
+      changed_when: false
+      ignore_errors: true
+
+    - name: Start Minikube if it is not running
+      command: minikube start
+      when: "not minikube_status.stdout or 'Running' not in minikube_status.stdout"
+
+  tasks:
+    # 1) Get Minikube's Docker environment access
+    - name: Store the `minikube docker-env` command's output
+      command: minikube docker-env --shell=bash
+      register: minikube_docker_env_cmd
+      changed_when: false
+
+    - name: Parse each of these variables & gather them
+      set_fact:
+        minikube_docker_env: "{{
+          minikube_docker_env | default({}) | combine({
+            item | regex_replace('^.*\\b(\\w+)\\b=\"(.*)\".*$', '\\1'):
+            item | regex_replace('^.*\\b(\\w+)\\b=\"(.*)\".*$', '\\2')
+          }) }}"
+      loop: "{{ minikube_docker_env_cmd.stdout_lines }}"
+      when: "'=' in item"
+      changed_when: false
+
+    # 2) Build the Hello Go Docker image
+    - name: Get the hash of the image if it exists already
+      command: docker images -q {{ image_name }}
+      environment: "{{ minikube_docker_env }}"
+      register: image_hash
+      changed_when: false
+
+    - name: Build the image if it does not exist
+      command: docker build -t {{ image_name }} ../hello-go/
+      environment: "{{ minikube_docker_env }}"
+      when: "not image_hash.stdout"
+
+    # 3) Create the Kubernetes resources for Hello Go
+    - name: Create a deployment for Hello Go
+      community.kubernetes.k8s:
+        state: "{{ app_state }}"
+        resource_definition:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: hello-go
+            namespace: default # Required
+          spec:
+            replicas: "{{ replicas }}"
+            selector:
+              matchLabels:
+                app: hello-go
+            template:
+              metadata:
+                labels:
+                  app: hello-go
+              spec:
+                containers:
+                  - name: hello-go
+                    image: "{{ image_name }}"
+                    imagePullPolicy: IfNotPresent
+                    ports:
+                      - containerPort: 8180
+
+    - name: Create a service for Hello Go
+      community.kubernetes.k8s:
+        state: "{{ app_state }}"
+        resource_definition:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: hello-go
+            namespace: default # Required
+          spec:
+            type: LoadBalancer
+            selector:
+              app: hello-go
+            ports:
+              - protocol: TCP
+                port: 8180
+
+  post_tasks:
+    - name: Store the URL of the Hello Go service via Minikube
+      command: minikube service hello-go --url=true
+      register: hello_go_svc_cmd
+      when: "app_state != 'absent'"
+      changed_when: false
+
+    - debug:
+        msg: "Hello Go URL: {{ hello_go_svc_cmd.stdout }}"
+      when: "app_state != 'absent'"
